@@ -20,6 +20,13 @@ parent_class_association = Table(
     Column("class_id", ForeignKey("classes.id"), primary_key=True),
 )
 
+news_class_association = Table(
+    "news_class_association",
+    Base.metadata,
+    Column("news_id", ForeignKey("news.id"), primary_key=True),
+    Column("class_id", ForeignKey("classes.id"), primary_key=True),
+)
+
 
 class School(Base):
     __tablename__ = "schools"
@@ -74,6 +81,7 @@ class News(Base):
 
     author: Mapped["User"] = relationship()
     school: Mapped["School"] = relationship(back_populates="news")
+    classes: Mapped[list["Class"]] = relationship(secondary=news_class_association)
 
     def __str__(self) -> str:
         return self.title

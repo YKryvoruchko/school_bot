@@ -96,7 +96,7 @@ class ParentAdmin(ModelView, model=Parent):
 
 class NewsAdmin(TenantScopedView, model=News):
     column_list = [News.id, News.title, News.author, News.school]
-    form_columns = [News.title, News.text, News.author, News.school]
+    form_columns = [News.title, News.text, News.school, News.classes, News.author]
 
     async def on_model_change(self, data, model, is_created, request: Request) -> None:
         await super().on_model_change(data, model, is_created, request)
