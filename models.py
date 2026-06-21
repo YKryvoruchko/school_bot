@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import BigInteger, Column, ForeignKey, String, Table, Text
+from sqlalchemy import BigInteger, Boolean, Column, ForeignKey, String, Table, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -76,6 +76,7 @@ class News(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
     text: Mapped[str] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     school_id: Mapped[int] = mapped_column(ForeignKey("schools.id"))
 
@@ -93,8 +94,18 @@ class Parent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True)
     full_name: Mapped[str] = mapped_column(String(255))
+    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
 
     classes: Mapped[list["Class"]] = relationship(secondary=parent_class_association, backref="parents")
 
     def __str__(self) -> str:
         return self.full_name
+
+
+class NewsDelivery(Base):
+    __tablename__ = "news_deliveries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    news_id: Mapped[int] = mapped_column(ForeignKey("news.id", ondelete="CASCADE"))
+    parent_id: Mapped[int] = mapped_column(ForeignKey("parents.id", ondelete="CASCADE"))
+    telegram_message_id: Mapped[int] = mapped_column(BigInteger)

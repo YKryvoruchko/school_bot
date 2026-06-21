@@ -1,7 +1,7 @@
 import asyncio
 
 from aiogram import Bot
-from broadcaster import broadcast_news
+from broadcaster import broadcast_news, update_news_in_telegram
 from config import BOT_TOKEN
 
 from sqladmin import ModelView
@@ -88,7 +88,10 @@ class ClassAdmin(TenantScopedView, model=Class):
 
 
 class ParentAdmin(ModelView, model=Parent):
-    column_list = [Parent.id, Parent.full_name, Parent.telegram_id]
+    column_list = [Parent.id, Parent.full_name, Parent.telegram_id, Parent.is_blocked]
+    form_columns = [Parent.is_blocked]
+    can_create = False
+    can_delete = False
 
     def is_accessible(self, request: Request) -> bool:
         return is_superadmin(request)
@@ -96,7 +99,7 @@ class ParentAdmin(ModelView, model=Parent):
 
 class NewsAdmin(TenantScopedView, model=News):
     column_list = [News.id, News.title, News.author, News.school]
-    form_columns = [News.title, News.text, News.school, News.classes, News.author]
+    form_columns = [News.title, News.text, News.image_url, News.school, News.classes, News.author]
 
     async def on_model_change(self, data, model, is_created, request: Request) -> None:
         await super().on_model_change(data, model, is_created, request)
@@ -106,4 +109,9 @@ class NewsAdmin(TenantScopedView, model=News):
     async def insert_model(self, request: Request, data: dict):
         model = await super().insert_model(request, data)
         asyncio.create_task(broadcast_news(model.id, bot_instance))
+        return model
+
+    async def update_model(self, request: Request, pk: str, data: dict):
+        model = await super().update_model(request, pk, data)
+        asyncio.create_task(update_news_in_telegram(model.id, bot_instance))
         return model
