@@ -1,0 +1,38 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content_header %}
+<div class="admin-hero">
+  <div>
+    <p class="admin-kicker">Панель керування</p>
+    <h2>School Bot</h2>
+    <p>Керуйте школами, класами, батьками та новинами з одного місця.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="col-12">
+  <div class="admin-dashboard-grid">
+    <a class="dashboard-card" href="{{ url_for('admin:list', identity='school') }}">
+      <i class="fa-solid fa-school"></i>
+      <span>Школи</span>
+      <small>Структура навчальних закладів</small>
+    </a>
+    <a class="dashboard-card" href="{{ url_for('admin:list', identity='class') }}">
+      <i class="fa-solid fa-chalkboard-user"></i>
+      <span>Класи</span>
+      <small>Групи для розсилок</small>
+    </a>
+    <a class="dashboard-card" href="{{ url_for('admin:list', identity='parent') }}">
+      <i class="fa-solid fa-people-roof"></i>
+      <span>Батьки</span>
+      <small>Підписники Telegram-бота</small>
+    </a>
+    <a class="dashboard-card" href="{{ url_for('admin:list', identity='news') }}">
+      <i class="fa-solid fa-newspaper"></i>
+      <span>Новини</span>
+      <small>Публікації та оновлення</small>
+    </a>
+  </div>
+</div>
+{% endblock %}

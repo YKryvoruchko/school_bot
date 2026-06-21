@@ -66,6 +66,9 @@ class TenantScopedView(ModelView):
 
 
 class SchoolAdmin(ModelView, model=School):
+    name = "Школа"
+    name_plural = "Школи"
+    icon = "fa-solid fa-school"
     column_list = [School.id, School.name]
     form_columns = [School.name]
 
@@ -74,6 +77,9 @@ class SchoolAdmin(ModelView, model=School):
 
 
 class UserAdmin(ModelView, model=User):
+    name = "Користувач"
+    name_plural = "Користувачі"
+    icon = "fa-solid fa-user-shield"
     column_list = [User.id, User.username, User.role, User.school]
     form_columns = [User.username, User.password_hash, User.role, User.school]
     form_args = {"password_hash": {"label": "Пароль"}}
@@ -90,6 +96,9 @@ class UserAdmin(ModelView, model=User):
 
 
 class ClassAdmin(TenantScopedView, model=Class):
+    name = "Клас"
+    name_plural = "Класи"
+    icon = "fa-solid fa-chalkboard-user"
     column_list = [Class.id, Class.name, Class.school]
     form_columns = [Class.name, Class.school]
 
@@ -97,6 +106,7 @@ class ClassAdmin(TenantScopedView, model=Class):
 class ParentAdmin(ModelView, model=Parent):
     name = "Батько/мати"
     name_plural = "Батьки"
+    icon = "fa-solid fa-people-roof"
     column_list = [Parent.id, Parent.full_name, Parent.telegram_id, Parent.is_blocked]
     column_labels = {
         Parent.id: "ID",
@@ -152,6 +162,7 @@ class ParentAdmin(ModelView, model=Parent):
 class NewsAdmin(TenantScopedView, model=News):
     name = "Новина"
     name_plural = "Новини"
+    icon = "fa-solid fa-newspaper"
     column_list = [News.id, News.title, News.author, News.school]
     column_labels = {
         News.id: "ID",
