@@ -1,8 +1,16 @@
+import asyncio
+
+from aiogram import Bot
+from broadcaster import broadcast_news
+from config import BOT_TOKEN
+
 from sqladmin import ModelView
 from starlette.requests import Request
 
 from auth import hash_password
 from models import Class, News, Parent, School, User
+
+bot_instance = Bot(token=BOT_TOKEN)
 
 
 def is_superadmin(request: Request) -> bool:
@@ -94,3 +102,8 @@ class NewsAdmin(TenantScopedView, model=News):
         await super().on_model_change(data, model, is_created, request)
         if not is_superadmin(request):
             data["author"] = request.session["user_id"]
+
+    async def insert_model(self, request: Request, data: dict):
+        model = await super().insert_model(request, data)
+        asyncio.create_task(broadcast_news(model.id, bot_instance))
+        return model
