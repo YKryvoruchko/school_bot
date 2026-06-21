@@ -5,6 +5,13 @@
   {% block head_meta %}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <script>
+    (function () {
+      var theme = localStorage.getItem("schoolBotAdminTheme") || "light";
+      document.documentElement.setAttribute("data-admin-theme", theme);
+      document.documentElement.setAttribute("data-bs-theme", theme);
+    })();
+  </script>
   {% endblock %}
   {% block head_css %}
   <link rel="stylesheet" href="{{ url_for('admin:statics', path='css/tabler.min.css') }}">
@@ -38,6 +45,7 @@
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/select2.full.min.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/flatpickr.min.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/main.js') }}"></script>
+  <script type="text/javascript" src="/assets/admin-theme.js"></script>
   {% endblock %}
   {% block tail %}
   {% endblock %}

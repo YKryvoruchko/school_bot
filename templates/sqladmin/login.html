@@ -1,6 +1,11 @@
 {% extends "sqladmin/base.html" %}
 {% block body %}
 <div class="login-page">
+  <button class="btn admin-theme-toggle login-theme-toggle" type="button" data-theme-toggle aria-label="Змінити тему">
+    <i class="fa-solid fa-sun theme-icon-light"></i>
+    <i class="fa-solid fa-moon theme-icon-dark"></i>
+    <span data-theme-label>Світла тема</span>
+  </button>
   <section class="login-panel">
     <div class="login-copy">
       <div class="admin-brand-mark">SB</div>

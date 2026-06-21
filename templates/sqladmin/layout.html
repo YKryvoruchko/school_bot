@@ -23,6 +23,11 @@
           {{ display_menu(admin._menu, request) }}
         </div>
       </nav>
+      <button class="btn admin-theme-toggle m-2 px-3" type="button" data-theme-toggle aria-label="Змінити тему">
+        <i class="fa-solid fa-sun theme-icon-light"></i>
+        <i class="fa-solid fa-moon theme-icon-dark"></i>
+        <span data-theme-label>Світла тема</span>
+      </button>
       {% if admin.authentication_backend %}
       <a href="{{ request.url_for('admin:logout') }}" class="btn admin-logout m-2 px-3">
         <span class="me-2">Вийти</span>
