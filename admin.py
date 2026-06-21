@@ -66,6 +66,9 @@ class TenantScopedView(ModelView):
 
 
 class SchoolAdmin(ModelView, model=School):
+    name = "Школа"
+    name_plural = "Школи"
+    icon = "fa-solid fa-school"
     column_list = [School.id, School.name]
     form_columns = [School.name]
 
@@ -74,9 +77,12 @@ class SchoolAdmin(ModelView, model=School):
 
 
 class UserAdmin(ModelView, model=User):
+    name = "Користувач"
+    name_plural = "Користувачі"
+    icon = "fa-solid fa-user-shield"
     column_list = [User.id, User.username, User.role, User.school]
     form_columns = [User.username, User.password_hash, User.role, User.school]
-    form_args = {"password_hash": {"label": "Password"}}
+    form_args = {"password_hash": {"label": "Пароль"}}
 
     def is_accessible(self, request: Request) -> bool:
         return is_superadmin(request)
@@ -90,19 +96,23 @@ class UserAdmin(ModelView, model=User):
 
 
 class ClassAdmin(TenantScopedView, model=Class):
+    name = "Клас"
+    name_plural = "Класи"
+    icon = "fa-solid fa-chalkboard-user"
     column_list = [Class.id, Class.name, Class.school]
     form_columns = [Class.name, Class.school]
 
 
 class ParentAdmin(ModelView, model=Parent):
-    name = "Родитель"
-    name_plural = "Родители"
+    name = "Батько/мати"
+    name_plural = "Батьки"
+    icon = "fa-solid fa-people-roof"
     column_list = [Parent.id, Parent.full_name, Parent.telegram_id, Parent.is_blocked]
     column_labels = {
         Parent.id: "ID",
-        Parent.full_name: "Имя",
+        Parent.full_name: "Ім'я",
         Parent.telegram_id: "Telegram ID",
-        Parent.is_blocked: "Заблокирован",
+        Parent.is_blocked: "Заблоковано",
     }
     column_searchable_list = [Parent.telegram_id, Parent.full_name]
     column_sortable_list = [Parent.id, Parent.full_name, Parent.is_blocked]
@@ -150,8 +160,9 @@ class ParentAdmin(ModelView, model=Parent):
 
 
 class NewsAdmin(TenantScopedView, model=News):
-    name = "Новость"
-    name_plural = "Новости"
+    name = "Новина"
+    name_plural = "Новини"
+    icon = "fa-solid fa-newspaper"
     column_list = [News.id, News.title, News.author, News.school]
     column_labels = {
         News.id: "ID",
@@ -160,14 +171,14 @@ class NewsAdmin(TenantScopedView, model=News):
         News.school: "Школа",
     }
     column_formatters = {
-        News.image_url: lambda m, a: "🖼 есть" if m.image_url else "—",
+        News.image_url: lambda m, a: "Зображення є" if m.image_url else "-",
     }
     form_columns = [News.title, News.text, News.image_url, News.school, News.classes, News.author]
     form_labels = {
         "title": "Заголовок",
-        "text": "Текст новости",
-        "image_url": "Картинка (необязательно)",
-        "classes": "Классы (если не выбрать — новость придёт всем классам школы)",
+        "text": "Текст новини",
+        "image_url": "Зображення (необов'язково)",
+        "classes": "Класи (якщо не вибрати, новина прийде всім класам школи)",
     }
     form_overrides = {"image_url": FileField}
 

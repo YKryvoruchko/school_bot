@@ -1,0 +1,46 @@
+{% extends "sqladmin/base.html" %}
+{% block body %}
+<div class="login-page">
+  <button class="btn admin-theme-toggle login-theme-toggle" type="button" data-theme-toggle aria-label="Змінити тему">
+    <i class="fa-solid fa-sun theme-icon-light"></i>
+    <i class="fa-solid fa-moon theme-icon-dark"></i>
+    <span data-theme-label>Світла тема</span>
+  </button>
+  <section class="login-panel">
+    <div class="login-copy">
+      <div class="admin-brand-mark">SB</div>
+      <h1>School Bot</h1>
+      <p>Адміністративна панель для шкіл, класів, батьків і новин.</p>
+    </div>
+    <form class="card login-card" action="{{ url_for('admin:login') }}" method="POST" autocomplete="off">
+      <div class="card-body">
+        <h2 class="card-title mb-1">Вхід в адмінку</h2>
+        <p class="text-secondary mb-4">Увійдіть, щоб керувати даними школи.</p>
+        <div class="mb-3">
+          <label class="form-label">Логін</label>
+          {% if error %}
+          <input name="username" type="text" class="form-control is-invalid" placeholder="Введіть логін" autocomplete="off">
+          <div class="invalid-feedback">Невірний логін або пароль.</div>
+          {% else %}
+          <input name="username" type="text" class="form-control" placeholder="Введіть логін" autocomplete="off">
+          {% endif %}
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Пароль</label>
+          <div class="input-group input-group-flat">
+            {% if error %}
+            <input name="password" type="password" class="form-control is-invalid" placeholder="Введіть пароль" autocomplete="off">
+            <div class="invalid-feedback">Невірний логін або пароль.</div>
+            {% else %}
+            <input name="password" type="password" class="form-control" placeholder="Введіть пароль" autocomplete="off">
+            {% endif %}
+          </div>
+        </div>
+        <div class="form-footer">
+          <button type="submit" class="btn btn-primary w-100">Увійти</button>
+        </div>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

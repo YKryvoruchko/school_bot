@@ -25,12 +25,12 @@ async def send_classes_step(message: Message, state: FSMContext, school_id: int)
         classes = result.scalars().all()
 
     if not classes:
-        await message.answer("В этой школе пока нет классов. Обратитесь к администратору.")
+        await message.answer("У цій школі поки немає класів. Зверніться до адміністратора.")
         await state.clear()
         return
 
     await state.update_data(school_id=school_id)
-    await message.answer("Выберите класс:", reply_markup=classes_keyboard(classes))
+    await message.answer("Виберіть клас:", reply_markup=classes_keyboard(classes))
     await state.set_state(Registration.waiting_for_class)
 
 
@@ -40,7 +40,7 @@ async def send_schools_step(message: Message, state: FSMContext) -> None:
         schools = result.scalars().all()
 
     if not schools:
-        await message.answer("Школы пока не добавлены. Обратитесь к администратору.")
+        await message.answer("Школи поки не додані. Зверніться до адміністратора.")
         await state.clear()
         return
 
@@ -48,7 +48,7 @@ async def send_schools_step(message: Message, state: FSMContext) -> None:
         await send_classes_step(message, state, schools[0].id)
         return
 
-    await message.answer("Выберите школу:", reply_markup=schools_keyboard(schools))
+    await message.answer("Виберіть школу:", reply_markup=schools_keyboard(schools))
     await state.set_state(Registration.waiting_for_school)
 
 
@@ -60,12 +60,12 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
 
     if parent is not None:
         await message.answer(
-            f"С возвращением, {parent.full_name}! Выберите пункт меню ниже 👇",
+            f"З поверненням, {parent.full_name}! Виберіть пункт меню нижче:",
             reply_markup=main_menu_keyboard(),
         )
         return
 
-    await message.answer("Здравствуйте! Напишите, пожалуйста, ваше имя и фамилию:")
+    await message.answer("Вітаємо! Напишіть, будь ласка, ваше ім'я та прізвище:")
     await state.set_state(Registration.waiting_for_name)
 
 
@@ -73,7 +73,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
 async def process_name(message: Message, state: FSMContext) -> None:
     full_name = (message.text or "").strip()
     if not full_name:
-        await message.answer("Пожалуйста, напишите имя текстом.")
+        await message.answer("Будь ласка, напишіть ім'я текстом.")
         return
 
     async with async_session_maker() as session:
@@ -92,11 +92,11 @@ async def process_school(callback: CallbackQuery, state: FSMContext) -> None:
         classes = result.scalars().all()
 
     if not classes:
-        await callback.answer("В этой школе пока нет классов.", show_alert=True)
+        await callback.answer("У цій школі поки немає класів.", show_alert=True)
         return
 
     await state.update_data(school_id=school_id)
-    await callback.message.edit_text("Выберите класс:", reply_markup=classes_keyboard(classes))
+    await callback.message.edit_text("Виберіть клас:", reply_markup=classes_keyboard(classes))
     await state.set_state(Registration.waiting_for_class)
 
 
@@ -119,7 +119,7 @@ async def process_class(callback: CallbackQuery, state: FSMContext) -> None:
                 await session.execute(parent_class_association.insert().values(parent_id=parent.id, class_id=class_id))
                 await session.commit()
 
-    await callback.message.edit_text("Класс добавлен ✅\nДобавить ещё один класс?", reply_markup=more_keyboard())
+    await callback.message.edit_text("Клас додано.\nДодати ще один клас?", reply_markup=more_keyboard())
     await state.set_state(Registration.waiting_for_more)
 
 
@@ -131,8 +131,8 @@ async def process_more_yes(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(Registration.waiting_for_more, F.data == "more:no")
 async def process_more_no(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.edit_text("Готово! 🎉 Теперь вы будете получать новости своего класса.")
-    await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+    await callback.message.edit_text("Готово! Тепер ви будете отримувати новини свого класу.")
+    await callback.message.answer("Головне меню:", reply_markup=main_menu_keyboard())
 
 
 async def show_my_classes(message: Message) -> None:
@@ -148,12 +148,12 @@ async def show_my_classes(message: Message) -> None:
 
     if not rows:
         await message.answer(
-            "У вас пока нет добавленных классов.",
+            "У вас поки немає доданих класів.",
             reply_markup=main_menu_keyboard(),
         )
         return
 
-    text = "Ваши классы:\n" + "\n".join([f"• {s.name} — {c.name}" for c, s in rows])
+    text = "Ваші класи:\n" + "\n".join([f"- {s.name} - {c.name}" for c, s in rows])
     await message.answer(text, reply_markup=main_menu_keyboard())
 
 
@@ -169,7 +169,7 @@ async def menu_add_class(message: Message, state: FSMContext) -> None:
         parent = result.scalar_one_or_none()
 
     if parent is None:
-        await message.answer("Сначала пройдите регистрацию: напишите /start")
+        await message.answer("Спочатку пройдіть реєстрацію: напишіть /start")
         return
 
     await send_schools_step(message, state)

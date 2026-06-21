@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from sqladmin import Admin
@@ -10,6 +11,9 @@ from auth import AdminAuth, hash_password
 from config import SECRET_KEY
 from database import async_session_maker, engine
 from models import Base, User, UserRole
+
+BASE_DIR = Path(__file__).resolve().parent
+ADMIN_STATIC_DIR = BASE_DIR / "static"
 
 
 async def init_db() -> None:
@@ -39,8 +43,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
+app.mount("/assets", StaticFiles(directory=ADMIN_STATIC_DIR), name="assets")
 
-admin = Admin(app, engine, authentication_backend=AdminAuth(secret_key=SECRET_KEY))
+admin = Admin(
+    app,
+    engine,
+    authentication_backend=AdminAuth(secret_key=SECRET_KEY),
+    title="School Bot",
+)
 
 admin.add_view(SchoolAdmin)
 admin.add_view(UserAdmin)
