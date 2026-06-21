@@ -5,3 +5,5 @@ sqlalchemy==2.0.51
 aiosqlite==0.22.1
 python-dotenv==1.0.1
 aiogram==3.17.0
+python-multipart==0.0.20
+wtforms>=3.1

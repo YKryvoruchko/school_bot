@@ -109,3 +109,4 @@ class NewsDelivery(Base):
     news_id: Mapped[int] = mapped_column(ForeignKey("news.id", ondelete="CASCADE"))
     parent_id: Mapped[int] = mapped_column(ForeignKey("parents.id", ondelete="CASCADE"))
     telegram_message_id: Mapped[int] = mapped_column(BigInteger)
+    has_photo: Mapped[bool] = mapped_column(Boolean, default=False)

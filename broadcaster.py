@@ -1,9 +1,20 @@
+from pathlib import Path
+
 from aiogram import Bot
+from aiogram.types import FSInputFile, InputMediaPhoto
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from database import async_session_maker
 from models import Class, News, NewsDelivery, Parent, parent_class_association
+
+MEDIA_ROOT = Path(__file__).resolve().parent
+
+
+def resolve_photo(image_value: str):
+    if image_value.startswith("http://") or image_value.startswith("https://"):
+        return image_value
+    return FSInputFile(MEDIA_ROOT / image_value)
 
 
 async def broadcast_news(news_id: int, bot: Bot) -> None:
@@ -30,16 +41,26 @@ async def broadcast_news(news_id: int, bot: Bot) -> None:
         parents = result.scalars().all()
 
         text = f"<b>{news.title}</b>\n\n{news.text}"
+        has_photo = bool(news.image_url)
 
         for parent in parents:
             try:
-                if news.image_url:
-                    msg = await bot.send_photo(chat_id=parent.telegram_id, photo=news.image_url, caption=text)
+                if has_photo:
+                    msg = await bot.send_photo(
+                        chat_id=parent.telegram_id,
+                        photo=resolve_photo(news.image_url),
+                        caption=text,
+                    )
                 else:
                     msg = await bot.send_message(chat_id=parent.telegram_id, text=text)
 
                 session.add(
-                    NewsDelivery(news_id=news.id, parent_id=parent.id, telegram_message_id=msg.message_id)
+                    NewsDelivery(
+                        news_id=news.id,
+                        parent_id=parent.id,
+                        telegram_message_id=msg.message_id,
+                        has_photo=has_photo,
+                    )
                 )
             except Exception:
                 continue
@@ -66,9 +87,25 @@ async def update_news_in_telegram(news_id: int, bot: Bot) -> None:
 
     for delivery, telegram_id in deliveries:
         try:
-            if news.image_url:
-                await bot.edit_message_caption(chat_id=telegram_id, message_id=delivery.telegram_message_id, caption=text)
+            if delivery.has_photo:
+                if news.image_url:
+                    media = InputMediaPhoto(media=resolve_photo(news.image_url), caption=text)
+                    await bot.edit_message_media(
+                        chat_id=telegram_id,
+                        message_id=delivery.telegram_message_id,
+                        media=media,
+                    )
+                else:
+                    await bot.edit_message_caption(
+                        chat_id=telegram_id,
+                        message_id=delivery.telegram_message_id,
+                        caption=text,
+                    )
             else:
-                await bot.edit_message_text(chat_id=telegram_id, message_id=delivery.telegram_message_id, text=text)
+                await bot.edit_message_text(
+                    chat_id=telegram_id,
+                    message_id=delivery.telegram_message_id,
+                    text=text,
+                )
         except Exception:
             continue

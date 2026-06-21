@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqladmin import Admin
 from sqlalchemy import select
+from starlette.staticfiles import StaticFiles
 
-from admin import ClassAdmin, NewsAdmin, ParentAdmin, SchoolAdmin, UserAdmin
+from admin import MEDIA_DIR, ClassAdmin, NewsAdmin, ParentAdmin, SchoolAdmin, UserAdmin
 from auth import AdminAuth, hash_password
 from config import SECRET_KEY
 from database import async_session_maker, engine
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 admin = Admin(app, engine, authentication_backend=AdminAuth(secret_key=SECRET_KEY))
 

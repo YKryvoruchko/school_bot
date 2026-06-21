@@ -1,6 +1,9 @@
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+
+MENU_MY_CLASSES = "📚 Мои классы"
+MENU_ADD_CLASS = "➕ Добавить класс"
 
 
 class Registration(StatesGroup):
@@ -28,7 +31,15 @@ def classes_keyboard(classes) -> InlineKeyboardMarkup:
 
 def more_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="Yes", callback_data="more:yes")
-    builder.button(text="No", callback_data="more:no")
+    builder.button(text="Да", callback_data="more:yes")
+    builder.button(text="Нет, всё", callback_data="more:no")
     builder.adjust(2)
     return builder.as_markup()
+
+
+def main_menu_keyboard() -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    builder.button(text=MENU_MY_CLASSES)
+    builder.button(text=MENU_ADD_CLASS)
+    builder.adjust(1)
+    return builder.as_markup(resize_keyboard=True)

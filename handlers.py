@@ -1,14 +1,37 @@
 from aiogram import F, Router
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
-from bot_utils import Registration, classes_keyboard, more_keyboard, schools_keyboard
+from bot_utils import (
+    MENU_ADD_CLASS,
+    MENU_MY_CLASSES,
+    Registration,
+    classes_keyboard,
+    main_menu_keyboard,
+    more_keyboard,
+    schools_keyboard,
+)
 from database import async_session_maker
 from models import Class, Parent, School, parent_class_association
 
 router = Router()
+
+
+async def send_classes_step(message: Message, state: FSMContext, school_id: int) -> None:
+    async with async_session_maker() as session:
+        result = await session.execute(select(Class).where(Class.school_id == school_id))
+        classes = result.scalars().all()
+
+    if not classes:
+        await message.answer("В этой школе пока нет классов. Обратитесь к администратору.")
+        await state.clear()
+        return
+
+    await state.update_data(school_id=school_id)
+    await message.answer("Выберите класс:", reply_markup=classes_keyboard(classes))
+    await state.set_state(Registration.waiting_for_class)
 
 
 async def send_schools_step(message: Message, state: FSMContext) -> None:
@@ -17,11 +40,15 @@ async def send_schools_step(message: Message, state: FSMContext) -> None:
         schools = result.scalars().all()
 
     if not schools:
-        await message.answer("No schools are available.")
+        await message.answer("Школы пока не добавлены. Обратитесь к администратору.")
         await state.clear()
         return
 
-    await message.answer("Select school:", reply_markup=schools_keyboard(schools))
+    if len(schools) == 1:
+        await send_classes_step(message, state, schools[0].id)
+        return
+
+    await message.answer("Выберите школу:", reply_markup=schools_keyboard(schools))
     await state.set_state(Registration.waiting_for_school)
 
 
@@ -32,17 +59,25 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         parent = result.scalar_one_or_none()
 
     if parent is not None:
-        await message.answer(f"Welcome back, {parent.full_name}!")
+        await message.answer(
+            f"С возвращением, {parent.full_name}! Выберите пункт меню ниже 👇",
+            reply_markup=main_menu_keyboard(),
+        )
         return
 
-    await message.answer("Enter your full name:")
+    await message.answer("Здравствуйте! Напишите, пожалуйста, ваше имя и фамилию:")
     await state.set_state(Registration.waiting_for_name)
 
 
 @router.message(Registration.waiting_for_name)
 async def process_name(message: Message, state: FSMContext) -> None:
+    full_name = (message.text or "").strip()
+    if not full_name:
+        await message.answer("Пожалуйста, напишите имя текстом.")
+        return
+
     async with async_session_maker() as session:
-        session.add(Parent(telegram_id=message.from_user.id, full_name=message.text.strip()))
+        session.add(Parent(telegram_id=message.from_user.id, full_name=full_name))
         await session.commit()
 
     await send_schools_step(message, state)
@@ -57,10 +92,11 @@ async def process_school(callback: CallbackQuery, state: FSMContext) -> None:
         classes = result.scalars().all()
 
     if not classes:
-        await callback.answer("No classes.", show_alert=True)
+        await callback.answer("В этой школе пока нет классов.", show_alert=True)
         return
 
-    await callback.message.edit_text("Select class:", reply_markup=classes_keyboard(classes))
+    await state.update_data(school_id=school_id)
+    await callback.message.edit_text("Выберите класс:", reply_markup=classes_keyboard(classes))
     await state.set_state(Registration.waiting_for_class)
 
 
@@ -83,7 +119,7 @@ async def process_class(callback: CallbackQuery, state: FSMContext) -> None:
                 await session.execute(parent_class_association.insert().values(parent_id=parent.id, class_id=class_id))
                 await session.commit()
 
-    await callback.message.edit_text("Added. Add another?", reply_markup=more_keyboard())
+    await callback.message.edit_text("Класс добавлен ✅\nДобавить ещё один класс?", reply_markup=more_keyboard())
     await state.set_state(Registration.waiting_for_more)
 
 
@@ -95,11 +131,11 @@ async def process_more_yes(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(Registration.waiting_for_more, F.data == "more:no")
 async def process_more_no(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.edit_text("Done! Use /my_classes")
+    await callback.message.edit_text("Готово! 🎉 Теперь вы будете получать новости своего класса.")
+    await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
 
 
-@router.message(Command("my_classes"))
-async def cmd_my_classes(message: Message) -> None:
+async def show_my_classes(message: Message) -> None:
     async with async_session_maker() as session:
         result = await session.execute(
             select(Class, School)
@@ -111,7 +147,29 @@ async def cmd_my_classes(message: Message) -> None:
         rows = result.all()
 
     if not rows:
-        await message.answer("No classes.")
+        await message.answer(
+            "У вас пока нет добавленных классов.",
+            reply_markup=main_menu_keyboard(),
+        )
         return
 
-    await message.answer("\n".join([f"{s.name} - {c.name}" for c, s in rows]))
+    text = "Ваши классы:\n" + "\n".join([f"• {s.name} — {c.name}" for c, s in rows])
+    await message.answer(text, reply_markup=main_menu_keyboard())
+
+
+@router.message(F.text == MENU_MY_CLASSES)
+async def menu_my_classes(message: Message) -> None:
+    await show_my_classes(message)
+
+
+@router.message(F.text == MENU_ADD_CLASS)
+async def menu_add_class(message: Message, state: FSMContext) -> None:
+    async with async_session_maker() as session:
+        result = await session.execute(select(Parent).where(Parent.telegram_id == message.from_user.id))
+        parent = result.scalar_one_or_none()
+
+    if parent is None:
+        await message.answer("Сначала пройдите регистрацию: напишите /start")
+        return
+
+    await send_schools_step(message, state)
