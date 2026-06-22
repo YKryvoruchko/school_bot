@@ -5,12 +5,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 MENU_MY_CLASSES = "Мої класи"
 MENU_ADD_CLASS = "Додати клас"
 
+DONE_CALLBACK = "classes_done"
+
 
 class Registration(StatesGroup):
     waiting_for_name = State()
     waiting_for_school = State()
-    waiting_for_class = State()
-    waiting_for_more = State()
+    choosing_classes = State()
+    waiting_for_more_schools = State()
 
 
 def schools_keyboard(schools) -> InlineKeyboardMarkup:
@@ -21,10 +23,14 @@ def schools_keyboard(schools) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def classes_keyboard(classes) -> InlineKeyboardMarkup:
+def classes_multiselect_keyboard(classes, selected_ids) -> InlineKeyboardMarkup:
+    """Клавіатура з галочками: можна відмітити одразу декілька класів
+    (наприклад перший і третій), а потім натиснути «Готово»."""
     builder = InlineKeyboardBuilder()
     for class_ in classes:
-        builder.button(text=class_.name, callback_data=f"class:{class_.id}")
+        mark = "✅ " if class_.id in selected_ids else "⬜️ "
+        builder.button(text=f"{mark}{class_.name}", callback_data=f"toggle_class:{class_.id}")
+    builder.button(text="✅ Готово", callback_data=DONE_CALLBACK)
     builder.adjust(1)
     return builder.as_markup()
 

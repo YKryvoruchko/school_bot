@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 
 from aiogram import Bot
 from aiogram.types import FSInputFile, InputMediaPhoto
@@ -9,6 +10,7 @@ from database import async_session_maker
 from models import Class, News, NewsDelivery, Parent, parent_class_association
 
 MEDIA_ROOT = Path(__file__).resolve().parent
+logger = logging.getLogger(__name__)
 
 
 def resolve_photo(image_value: str):
@@ -23,6 +25,14 @@ async def broadcast_news(news_id: int, bot: Bot) -> None:
         news = result.scalar_one_or_none()
 
         if news is None:
+            return
+
+        # Захист від дублювання: якщо вже розіслали — виходимо
+        existing = await session.execute(
+            select(NewsDelivery).where(NewsDelivery.news_id == news_id).limit(1)
+        )
+        if existing.scalar_one_or_none() is not None:
+            logger.info("broadcast_news: news_id=%s вже розіслана, пропускаємо", news_id)
             return
 
         stmt = (
@@ -62,10 +72,12 @@ async def broadcast_news(news_id: int, bot: Bot) -> None:
                         has_photo=has_photo,
                     )
                 )
-            except Exception:
+            except Exception as e:
+                logger.warning("broadcast_news: не вдалося надіслати parent_id=%s: %s", parent.id, e)
                 continue
 
         await session.commit()
+        logger.info("broadcast_news: news_id=%s розіслана %s батькам", news_id, len(parents))
 
 
 async def update_news_in_telegram(news_id: int, bot: Bot) -> None:
@@ -107,5 +119,6 @@ async def update_news_in_telegram(news_id: int, bot: Bot) -> None:
                     message_id=delivery.telegram_message_id,
                     text=text,
                 )
-        except Exception:
+        except Exception as e:
+            logger.warning("update_news_in_telegram: telegram_id=%s: %s", telegram_id, e)
             continue

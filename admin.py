@@ -8,7 +8,8 @@ from config import BOT_TOKEN
 
 from sqladmin import ModelView
 from starlette.requests import Request
-from wtforms import FileField
+from wtforms import BooleanField, FileField
+from wtforms.widgets import CheckboxInput
 
 from auth import hash_password
 from models import Class, News, Parent, School, User, parent_class_association
@@ -18,6 +19,18 @@ bot_instance = Bot(token=BOT_TOKEN)
 MEDIA_DIR = Path(__file__).resolve().parent / "media"
 MEDIA_DIR.mkdir(exist_ok=True)
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+
+class SafeBooleanField(BooleanField):
+    """В sqladmin 0.27.2 собственный BooleanInputWidget наследуется напрямую
+    от wtforms.widgets.Input, а не от CheckboxInput, и поэтому у него нет
+    атрибута validation_attrs. При этом сам sqladmin требует wtforms>=3.1,
+    где этот атрибут обязателен — в итоге ЛЮБОЙ чекбокс в форме падает
+    с 500 ошибкой (AttributeError: 'BooleanInputWidget' object has no
+    attribute 'validation_attrs'). Используем родной, рабочий виджет
+    wtforms вместо сломанного из sqladmin."""
+
+    widget = CheckboxInput()
 
 
 def is_superadmin(request: Request) -> bool:
@@ -118,6 +131,7 @@ class ParentAdmin(ModelView, model=Parent):
     column_sortable_list = [Parent.id, Parent.full_name, Parent.is_blocked]
     column_default_sort = [(Parent.id, True)]
     form_columns = [Parent.is_blocked]
+    form_overrides = {"is_blocked": SafeBooleanField}
     can_create = False
     can_delete = False
 
@@ -185,10 +199,12 @@ class NewsAdmin(TenantScopedView, model=News):
     async def _save_uploaded_image(self, data: dict) -> None:
         upload = data.get("image_url")
 
-        if not hasattr(upload, "filename"):
+        # Уже строка из БД (старое значение) — не трогаем
+        if upload is None or isinstance(upload, str):
             return
 
-        if not upload.filename:
+        # UploadFile без файла — убираем ключ, чтобы не записать объект в БД
+        if not hasattr(upload, "filename") or not upload.filename:
             data.pop("image_url", None)
             return
 
@@ -210,10 +226,20 @@ class NewsAdmin(TenantScopedView, model=News):
 
     async def insert_model(self, request: Request, data: dict):
         model = await super().insert_model(request, data)
-        asyncio.create_task(broadcast_news(model.id, bot_instance))
+
+        async def _send():
+            async with bot_instance:
+                await broadcast_news(model.id, bot_instance)
+
+        asyncio.create_task(_send())
         return model
 
     async def update_model(self, request: Request, pk: str, data: dict):
         model = await super().update_model(request, pk, data)
-        asyncio.create_task(update_news_in_telegram(model.id, bot_instance))
+
+        async def _send():
+            async with bot_instance:
+                await update_news_in_telegram(model.id, bot_instance)
+
+        asyncio.create_task(_send())
         return model
