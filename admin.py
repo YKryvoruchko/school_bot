@@ -1,4 +1,5 @@
 import asyncio
+from io import BytesIO
 import uuid
 from pathlib import Path
 
@@ -17,7 +18,47 @@ bot_instance = Bot(token=BOT_TOKEN)
 
 MEDIA_DIR = Path(__file__).resolve().parent / "media"
 MEDIA_DIR.mkdir(exist_ok=True)
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+TELEGRAM_PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+CONVERTIBLE_IMAGE_EXTENSIONS = {
+    ".avif",
+    ".bmp",
+    ".heic",
+    ".heif",
+    ".jfif",
+    ".tif",
+    ".tiff",
+}
+
+
+def normalize_photo_for_telegram(content: bytes, ext: str) -> tuple[bytes, str]:
+    if ext in TELEGRAM_PHOTO_EXTENSIONS:
+        return content, ext
+
+    if ext not in CONVERTIBLE_IMAGE_EXTENSIONS:
+        return content, ext
+
+    try:
+        from PIL import Image
+        from pillow_heif import register_heif_opener
+    except ImportError:
+        return content, ext
+
+    register_heif_opener()
+
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image.load()
+            image.thumbnail((4096, 4096))
+            image = image.convert("RGBA")
+
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            background.paste(image, mask=image.getchannel("A"))
+
+            output = BytesIO()
+            background.save(output, format="JPEG", quality=92, optimize=True)
+            return output.getvalue(), ".jpg"
+    except Exception:
+        return content, ext
 
 
 def is_superadmin(request: Request) -> bool:
@@ -171,18 +212,18 @@ class NewsAdmin(TenantScopedView, model=News):
         News.school: "Школа",
     }
     column_formatters = {
-        News.image_url: lambda m, a: "Зображення є" if m.image_url else "-",
+        News.image_url: lambda m, a: "Файл є" if m.image_url else "-",
     }
     form_columns = [News.title, News.text, News.image_url, News.school, News.classes, News.author]
     form_labels = {
         "title": "Заголовок",
         "text": "Текст новини",
-        "image_url": "Зображення (необов'язково)",
+        "image_url": "Файл (необов'язково)",
         "classes": "Класи (якщо не вибрати, новина прийде всім класам школи)",
     }
     form_overrides = {"image_url": FileField}
 
-    async def _save_uploaded_image(self, data: dict) -> None:
+    async def _save_uploaded_file(self, data: dict) -> None:
         upload = data.get("image_url")
 
         if not hasattr(upload, "filename"):
@@ -193,18 +234,15 @@ class NewsAdmin(TenantScopedView, model=News):
             return
 
         ext = Path(upload.filename).suffix.lower()
-        if ext not in ALLOWED_IMAGE_EXTENSIONS:
-            data.pop("image_url", None)
-            return
-
-        filename = f"{uuid.uuid4().hex}{ext}"
         content = await upload.read()
+        content, ext = normalize_photo_for_telegram(content, ext)
+        filename = f"{uuid.uuid4().hex}{ext}"
         (MEDIA_DIR / filename).write_bytes(content)
         data["image_url"] = f"media/{filename}"
 
     async def on_model_change(self, data, model, is_created, request: Request) -> None:
         await super().on_model_change(data, model, is_created, request)
-        await self._save_uploaded_image(data)
+        await self._save_uploaded_file(data)
         if not is_superadmin(request):
             data["author"] = request.session["user_id"]
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from aiogram import Bot
-from aiogram.types import FSInputFile, InputMediaPhoto
+from aiogram.types import FSInputFile, InputMediaAnimation, InputMediaDocument, InputMediaPhoto, InputMediaVideo
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -9,12 +9,69 @@ from database import async_session_maker
 from models import Class, News, NewsDelivery, Parent, parent_class_association
 
 MEDIA_ROOT = Path(__file__).resolve().parent
+PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ANIMATION_EXTENSIONS = {".gif"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm"}
 
 
-def resolve_photo(image_value: str):
-    if image_value.startswith("http://") or image_value.startswith("https://"):
-        return image_value
-    return FSInputFile(MEDIA_ROOT / image_value)
+def is_photo_file(file_value: str) -> bool:
+    path = file_value.split("?", 1)[0]
+    return Path(path).suffix.lower() in PHOTO_EXTENSIONS
+
+
+def file_extension(file_value: str) -> str:
+    path = file_value.split("?", 1)[0]
+    return Path(path).suffix.lower()
+
+
+def resolve_file(file_value: str):
+    if file_value.startswith("http://") or file_value.startswith("https://"):
+        return file_value
+    return FSInputFile(MEDIA_ROOT / file_value)
+
+
+async def send_news_message(bot: Bot, telegram_id: int, text: str, file_value: str | None):
+    if not file_value:
+        return await bot.send_message(chat_id=telegram_id, text=text)
+
+    if is_photo_file(file_value):
+        return await bot.send_photo(
+            chat_id=telegram_id,
+            photo=resolve_file(file_value),
+            caption=text,
+        )
+
+    ext = file_extension(file_value)
+    if ext in ANIMATION_EXTENSIONS:
+        return await bot.send_animation(
+            chat_id=telegram_id,
+            animation=resolve_file(file_value),
+            caption=text,
+        )
+
+    if ext in VIDEO_EXTENSIONS:
+        return await bot.send_video(
+            chat_id=telegram_id,
+            video=resolve_file(file_value),
+            caption=text,
+        )
+
+    return await bot.send_document(
+        chat_id=telegram_id,
+        document=resolve_file(file_value),
+        caption=text,
+    )
+
+
+def build_input_media(file_value: str, caption: str):
+    if is_photo_file(file_value):
+        return InputMediaPhoto(media=resolve_file(file_value), caption=caption)
+    ext = file_extension(file_value)
+    if ext in ANIMATION_EXTENSIONS:
+        return InputMediaAnimation(media=resolve_file(file_value), caption=caption)
+    if ext in VIDEO_EXTENSIONS:
+        return InputMediaVideo(media=resolve_file(file_value), caption=caption)
+    return InputMediaDocument(media=resolve_file(file_value), caption=caption)
 
 
 async def broadcast_news(news_id: int, bot: Bot) -> None:
@@ -41,25 +98,18 @@ async def broadcast_news(news_id: int, bot: Bot) -> None:
         parents = result.scalars().all()
 
         text = f"<b>{news.title}</b>\n\n{news.text}"
-        has_photo = bool(news.image_url)
+        has_file = bool(news.image_url)
 
         for parent in parents:
             try:
-                if has_photo:
-                    msg = await bot.send_photo(
-                        chat_id=parent.telegram_id,
-                        photo=resolve_photo(news.image_url),
-                        caption=text,
-                    )
-                else:
-                    msg = await bot.send_message(chat_id=parent.telegram_id, text=text)
+                msg = await send_news_message(bot, parent.telegram_id, text, news.image_url)
 
                 session.add(
                     NewsDelivery(
                         news_id=news.id,
                         parent_id=parent.id,
                         telegram_message_id=msg.message_id,
-                        has_photo=has_photo,
+                        has_photo=has_file,
                     )
                 )
             except Exception:
@@ -89,7 +139,7 @@ async def update_news_in_telegram(news_id: int, bot: Bot) -> None:
         try:
             if delivery.has_photo:
                 if news.image_url:
-                    media = InputMediaPhoto(media=resolve_photo(news.image_url), caption=text)
+                    media = build_input_media(news.image_url, text)
                     await bot.edit_message_media(
                         chat_id=telegram_id,
                         message_id=delivery.telegram_message_id,
