@@ -77,8 +77,9 @@ class News(Base):
     title: Mapped[str] = mapped_column(String(255))
     text: Mapped[str] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    is_global: Mapped[bool] = mapped_column(Boolean, default=False)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    school_id: Mapped[int] = mapped_column(ForeignKey("schools.id"))
+    school_id: Mapped[int | None] = mapped_column(ForeignKey("schools.id"), nullable=True)
 
     author: Mapped["User"] = relationship()
     school: Mapped["School"] = relationship(back_populates="news")

@@ -60,10 +60,10 @@ async def send_schools_step(message: Message, state: FSMContext) -> None:
         await state.clear()
         return
 
-    await state.update_data(schools_total=len(schools))
+    state_data = await state.get_data()
+    if "schools_total" not in state_data:
+        await state.update_data(schools_total=len(schools))
 
-    # Якщо в системі лише одна школа — не питаємо про неї,
-    # а одразу переходимо до вибору класів (менше кроків = зручніше).
     if len(schools) == 1:
         await send_classes_step(message, state, schools[0].id)
         return

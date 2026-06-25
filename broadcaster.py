@@ -27,7 +27,6 @@ async def broadcast_news(news_id: int, bot: Bot) -> None:
         if news is None:
             return
 
-        # Захист від дублювання: якщо вже розіслали — виходимо
         existing = await session.execute(
             select(NewsDelivery).where(NewsDelivery.news_id == news_id).limit(1)
         )
@@ -40,12 +39,16 @@ async def broadcast_news(news_id: int, bot: Bot) -> None:
             .distinct()
             .join(parent_class_association, parent_class_association.c.parent_id == Parent.id)
             .join(Class, Class.id == parent_class_association.c.class_id)
-            .where(Class.school_id == news.school_id, Parent.is_blocked == False)
+            .where(Parent.is_blocked == False)
         )
 
-        if news.classes:
-            target_class_ids = [c.id for c in news.classes]
-            stmt = stmt.where(Class.id.in_(target_class_ids))
+        if not news.is_global:
+            if news.school_id:
+                stmt = stmt.where(Class.school_id == news.school_id)
+
+            if news.classes:
+                target_class_ids = [c.id for c in news.classes]
+                stmt = stmt.where(Class.id.in_(target_class_ids))
 
         result = await session.execute(stmt)
         parents = result.scalars().all()
