@@ -55,6 +55,12 @@ DATABASE_URL=sqlite+aiosqlite:///./school.db
 > `SECRET_KEY` нужен для подписи сессий в админке — придумайте любую длинную
 > случайную строку и никому не показывайте.
 
+Накатите миграции (создаёт файл `school.db` со всеми таблицами):
+
+```bash
+alembic upgrade head
+```
+
 ---
 
 ## ▶️ Запуск
@@ -137,14 +143,21 @@ pip install -r requirements.txt -U
 3. Новость создана для той же школы, где у родителя есть классы.
 
 ### После `git pull` что-то не работает
-Скорее всего, не накатились новые зависимости или не добавилась новая колонка
-в базу (миграций Alembic в проекте нет, `create_all` не трогает существующие
-таблицы):
+Скорее всего, не накатились новые зависимости или новая миграция БД:
 ```bash
 pip install -r requirements.txt -U
-sqlite3 school.db "ALTER TABLE news_deliveries ADD COLUMN has_photo BOOLEAN DEFAULT 0"
+alembic upgrade head
 ```
-(Если колонка уже есть — sqlite3 просто скажет об этом ошибкой, это не страшно.)
+
+### Добавил/изменил поле в `models.py` — что делать?
+Сгенерировать миграцию и применить её:
+```bash
+alembic revision --autogenerate -m "короткое описание изменения"
+alembic upgrade head
+```
+Файл миграции из `alembic/versions/` обязательно коммитить в git — это и есть
+история изменений базы, без него у других участников и на проде схема не
+обновится.
 
 ---
 
@@ -159,7 +172,32 @@ sqlite3 school.db "ALTER TABLE news_deliveries ADD COLUMN has_photo BOOLEAN DEFA
 
 ## 📋 Roadmap / что можно добавить дальше
 
-- Алembic-миграции вместо ручных `ALTER TABLE`.
 - Уведомление родителю о смене класса/школы.
 - Экспорт списка родителей в Excel.
-- Кнопка «Отписаться от класса» в боте.
+- Кнопка «Отписаться від класу» в боте.
+- Привязка Telegram-аккаунта классного керівника к его веб-логіну (сейчас це
+  два окремих записи: `WebUser` для веб-панелі та `TelegramAccount`/`Section`
+  для бота — контактні дані в `WebUser` заповнюються вручну).
+- Скрипт автоматичного розгортання нової школи (Docker Compose template +
+  provisioning script) — потрібен перед масштабуванням на другу/третю школу.
+
+---
+
+## 🩹 Changelog (виправлення цієї збірки)
+
+- `main_web.py` був написаний під стару мульти-тенантну модель (`User`,
+  `UserRole`, `SchoolAdmin`, `UserAdmin`, `ParentAdmin` — цих імен вже немає в
+  `models.py`/`admin.py`) і не запускався. Переписано під актуальні
+  `WebUser`/`WebUserRole` та реальні view з `admin.py`.
+- `admin.py`: `StaleDataError` імпортувався з `sqlalchemy.exc`, хоча в
+  SQLAlchemy 2.0 він живе в `sqlalchemy.orm.exc` — імпорт падав.
+- `requirements.txt`: відсутні `passlib`/`bcrypt` (потрібні `auth.py`) та
+  `itsdangerous` (потрібен sqladmin для сесій); версія `redis==5.2.1`
+  конфліктувала з `aiogram[redis]` (вимагає `redis<5.1.0`); `bcrypt>=4.1`
+  несумісний з `passlib==1.7.4` — усі версії зафіксовано на робочих парах.
+- `.gitignore`: була помилка `.env.env` замість `.env` — реальний токен бота
+  міг потрапити в git. Виправлено + додано `*.db`, `media/`, `__pycache__/`.
+- Додано Alembic (`alembic/`, `alembic.ini`) — миграції замість ручних
+  `ALTER TABLE`, env.py бере `DATABASE_URL` з `.env` проєкту.
+- Видалено порожній невикористовуваний `bot_main.py` (залишок рефакторингу;
+  точка входу бота — `main_bot.py`).

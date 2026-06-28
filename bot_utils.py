@@ -1,44 +1,62 @@
+import asyncio
+
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
-MENU_MY_CLASSES = "Мої класи"
-MENU_ADD_CLASS = "Додати клас"
-
-DONE_CALLBACK = "classes_done"
-
 
 class Registration(StatesGroup):
+    choosing_role = State()
     waiting_for_name = State()
-    waiting_for_school = State()
+    choosing_class = State()
     choosing_classes = State()
-    waiting_for_more_schools = State()
 
 
-def schools_keyboard(schools) -> InlineKeyboardMarkup:
+CB_ROLE = "role"
+CB_CLASS = "class"
+CB_TOGGLE = "toggle"
+CB_DONE = "classes_done"
+
+MENU_MY_CLASSES = "📋 Мої класи"
+MENU_MY_PROFILE = "👤 Мій профіль"
+MENU_ADD_SECTION = "➕ Додати секцію"
+
+_user_locks: dict[int, asyncio.Lock] = {}
+_MAX_LOCKS = 10_000
+
+
+def get_user_lock(user_id: int) -> asyncio.Lock:
+    if user_id not in _user_locks:
+        if len(_user_locks) >= _MAX_LOCKS:
+            to_remove = [uid for uid, lk in _user_locks.items() if not lk.locked()]
+            for uid in to_remove:
+                del _user_locks[uid]
+        _user_locks[user_id] = asyncio.Lock()
+    return _user_locks[user_id]
+
+
+def role_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for school in schools:
-        builder.button(text=school.name, callback_data=f"school:{school.id}")
+    builder.button(text="🎓 Учень", callback_data=f"{CB_ROLE}:student")
+    builder.button(text="👨‍👩‍👦 Батько/Мати", callback_data=f"{CB_ROLE}:parent")
     builder.adjust(1)
     return builder.as_markup()
 
 
-def classes_multiselect_keyboard(classes, selected_ids) -> InlineKeyboardMarkup:
-    """Клавіатура з галочками: можна відмітити одразу декілька класів
-    (наприклад перший і третій), а потім натиснути «Готово»."""
+def classes_keyboard(classes: list) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for class_ in classes:
-        mark = "✅ " if class_.id in selected_ids else "⬜️ "
-        builder.button(text=f"{mark}{class_.name}", callback_data=f"toggle_class:{class_.id}")
-    builder.button(text="✅ Готово", callback_data=DONE_CALLBACK)
-    builder.adjust(1)
+    for cls in classes:
+        builder.button(text=cls.name, callback_data=f"{CB_CLASS}:{cls.id}")
+    builder.adjust(2)
     return builder.as_markup()
 
 
-def more_keyboard() -> InlineKeyboardMarkup:
+def classes_multiselect_keyboard(classes: list, selected: set) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="Так", callback_data="more:yes")
-    builder.button(text="Ні, все", callback_data="more:no")
+    for cls in classes:
+        mark = "✅ " if cls.id in selected else "⬜️ "
+        builder.button(text=f"{mark}{cls.name}", callback_data=f"{CB_TOGGLE}:{cls.id}")
+    builder.button(text="✅ Готово", callback_data=CB_DONE)
     builder.adjust(2)
     return builder.as_markup()
 
@@ -46,6 +64,7 @@ def more_keyboard() -> InlineKeyboardMarkup:
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.button(text=MENU_MY_CLASSES)
-    builder.button(text=MENU_ADD_CLASS)
-    builder.adjust(1)
+    builder.button(text=MENU_MY_PROFILE)
+    builder.button(text=MENU_ADD_SECTION)
+    builder.adjust(2)
     return builder.as_markup(resize_keyboard=True)
